@@ -49,34 +49,37 @@ cam = cv.VideoCapture(0)
 frame_idx = 0
 
 # -----------------------------
-# Play Buttons
+# Play Buttons (spaced 200 units from center)
 # -----------------------------
-left_button = PlayButton(center=(400, 600), radius=30, label="PLAY 1")
-right_button = PlayButton(center=(800, 600), radius=30, label="PLAY 2")
-# Pinch state tracking
-left_hand_pinching = False
-right_hand_pinching = False
-left_was_pinching = False
-right_was_pinching = False
+h, w = 720, 1280  # Default camera size (used for positioning)
+center_x = w // 2
+button_y = 600
+left_button = PlayButton(center=(center_x - 200, button_y), radius=30, label="PLAY 1")
+right_button = PlayButton(center=(center_x + 200, button_y), radius=30, label="PLAY 2")
+
+# Track pinch states to prevent repeated triggers
+pinching_previous = set()
 
 while cam.isOpened():
     success, frame = cam.read()
     if not success:
         print("Camera Frame not available")
         continue
-    
+
     # Flip frame for mirror effect
     frame = cv.flip(frame, 1)
-
     h, w, _ = frame.shape
+
+    # Convert to RGB for MediaPipe
     rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
     result = landmarker.detect_for_video(mp_image, frame_idx)
     frame_idx += 1
 
-    # Reset cursor states
+    # Collect pinching hand cursors
     cursors = []
+    pinching_current = set()
 
     # -----------------------------
     # Hand Detection
@@ -84,12 +87,14 @@ while cam.isOpened():
     if result.hand_landmarks:
         for hand_landmarks in result.hand_landmarks:
             pinching = is_pinching(hand_landmarks, w, h)
+            index_tip = hand_landmarks[8]
+            cursor_x, cursor_y = int(index_tip.x * w), int(index_tip.y * h)
+
             if pinching:
-                index_tip = hand_landmarks[8]
-                cursor_x, cursor_y = int(index_tip.x * w), int(index_tip.y * h)
                 cursors.append((cursor_x, cursor_y))
-            
-            # Draw fingers and bones (optional)
+                pinching_current.add((cursor_x, cursor_y))
+
+            # Draw hand landmarks
             fingers_to_draw = [
                 [0, 1, 2, 3, 4], [0, 5, 6, 7, 8],
                 [0, 9, 10, 11, 12], [0, 13, 14, 15, 16],
@@ -118,81 +123,36 @@ while cam.isOpened():
     right_button.draw(frame, active=right_active)
 
     # -----------------------------
-    # Display Status
-    # -----------------------------
-    cv.putText(frame, f"Left Button Status: {'Active' if left_active else 'Inactive'}", (10, 30),
-               cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255) if not left_active else (0, 255, 0), 2)
-            for tip_idx, color in zip(tip_indices, tip_colors):
-                lm = hand_landmarks[tip_idx]
-                x, y = int(lm.x * w), int(lm.y * h)
-
-                cv.circle(frame, (x, y), 15, color, cv.FILLED)
-
-                cv.putText(
-                    frame,
-                    f"({x}, {y})",
-                    (x + 20, y - 20),
-                    cv.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 255),
-                    2
-                )
-
-    # -----------------------------
     # Music Control Logic
     # -----------------------------
-    # Left pinch = play next song
-    if left_hand_pinching and not left_was_pinching:
+    if left_active and left_button.center not in pinching_previous:
         mc.play_next()
-        print("Left pinch: Next song")
-    
-    # Right pinch = play previous song
-    if right_hand_pinching and not right_was_pinching:
+        print("PLAY 1 triggered: Next song")
+
+    if right_active and right_button.center not in pinching_previous:
         mc.play_previous()
-        print("Right pinch: Previous song")
+        print("PLAY 2 triggered: Previous song")
 
-    # Update previous states
-    left_was_pinching = left_hand_pinching
-    right_was_pinching = right_hand_pinching
+    # Update previous pinching set
+    pinching_previous = set()
+    if left_active:
+        pinching_previous.add(left_button.center)
+    if right_active:
+        pinching_previous.add(right_button.center)
 
-    # Display pinch status
-    cv.putText(
-        frame,
-        f"Left Pinch (Next): {left_hand_pinching}",
-        (10, 30),
-        cv.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 255, 0) if left_hand_pinching else (0, 0, 255),
-        2
-    )
-    
-    cv.putText(
-        frame,
-        f"Right Pinch (Prev): {right_hand_pinching}",
-        (10, 60),
-        cv.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 255, 0) if right_hand_pinching else (0, 0, 255),
-        2
-    )
+    # -----------------------------
+    # Display Status
+    # -----------------------------
+    cv.putText(frame, f"PLAY 1: {'Active' if left_active else 'Inactive'}", (10, 30),
+               cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0) if left_active else (0, 0, 255), 2)
+    cv.putText(frame, f"PLAY 2: {'Active' if right_active else 'Inactive'}", (10, 60),
+               cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0) if right_active else (0, 0, 255), 2)
 
     # Display current song
     song_name = mc.get_current_song_name()
     if song_name:
-        cv.putText(
-            frame,
-            f"Playing: {song_name}",
-            (10, 90),
-            cv.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (255, 255, 0),
-            2
-        )
-
-    cv.imshow("Show Video", frame)
-
-    cv.putText(frame, f"Right Button Status: {'Active' if right_active else 'Inactive'}", (10, 60),
-               cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255) if not right_active else (0, 255, 0), 2)
+        cv.putText(frame, f"Playing: {song_name}", (10, 90),
+                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
     cv.imshow("Show Video", frame)
     if cv.waitKey(20) & 0xFF == ord('q'):
