@@ -2,6 +2,7 @@ import cv2 as cv
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+import math
 
 # -----------------------------
 # MediaPipe Hand Landmarker Setup
@@ -22,10 +23,29 @@ options = HandLandmarkerOptions(
 landmarker = HandLandmarker.create_from_options(options)
 
 # -----------------------------
+# Pinch Detection Function
+# -----------------------------
+def is_pinching(hand_landmarks, w, h, threshold=40):
+    """Check if thumb tip and index tip are close together"""
+    thumb_tip = hand_landmarks[4]
+    index_tip = hand_landmarks[8]
+    
+    thumb_x, thumb_y = int(thumb_tip.x * w), int(thumb_tip.y * h)
+    index_x, index_y = int(index_tip.x * w), int(index_tip.y * h)
+    
+    distance = math.sqrt((thumb_x - index_x)**2 + (thumb_y - index_y)**2)
+    
+    return distance < threshold
+
+# -----------------------------
 # Camera Setup
 # -----------------------------
 cam = cv.VideoCapture(1)
 frame_idx = 0
+
+# Pinch state tracking
+left_hand_pinching = False
+right_hand_pinching = False
 
 while cam.isOpened():
     success, frame = cam.read()
@@ -44,8 +64,23 @@ while cam.isOpened():
     result = landmarker.detect_for_video(mp_image, frame_idx)
     frame_idx += 1
 
-    if result.hand_landmarks:
-        for hand_landmarks in result.hand_landmarks:
+    # Reset pinch states
+    left_hand_pinching = False
+    right_hand_pinching = False
+
+    if result.hand_landmarks and result.handedness:
+        for hand_landmarks, handedness in zip(result.hand_landmarks, result.handedness):
+            
+            # Determine which hand (left or right)
+            hand_label = handedness[0].category_name  # "Left" or "Right"
+            
+            # Check for pinch
+            pinching = is_pinching(hand_landmarks, w, h)
+            
+            if hand_label == "Left":
+                left_hand_pinching = pinching
+            else:  # "Right"
+                right_hand_pinching = pinching
 
             # -----------------------------
             # All 5 Finger Chains
@@ -69,7 +104,7 @@ while cam.isOpened():
                     # Joint
                     cv.circle(frame, (px, py), 5, (0, 255, 0), cv.FILLED)
 
-                # Bone lines (changed to white)
+                # Bone lines
                 for i in range(len(poly_coords) - 1):
                     cv.line(
                         frame,
@@ -107,6 +142,27 @@ while cam.isOpened():
                     2
                 )
 
+    # Display pinch status
+    cv.putText(
+        frame,
+        f"Left Pinch: {left_hand_pinching}",
+        (10, 30),
+        cv.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0) if left_hand_pinching else (0, 0, 255),
+        2
+    )
+    
+    cv.putText(
+        frame,
+        f"Right Pinch: {right_hand_pinching}",
+        (10, 60),
+        cv.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0) if right_hand_pinching else (0, 0, 255),
+        2
+    )
+
     cv.imshow("Show Video", frame)
 
     if cv.waitKey(20) & 0xFF == ord('q'):
@@ -114,4 +170,3 @@ while cam.isOpened():
 
 cam.release()
 cv.destroyAllWindows()
-#
