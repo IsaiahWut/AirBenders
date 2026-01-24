@@ -1,0 +1,1 @@
+RoseHack 2026
