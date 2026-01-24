@@ -8,7 +8,7 @@ import music as mc
 # -----------------------------
 # Load Music
 # -----------------------------
-MUSIC_FOLDER = "music"  # Change this to your music folder path
+MUSIC_FOLDER = "MP3"  # Change this to your music folder path
 mc.load_music_folder(MUSIC_FOLDER)
 
 # -----------------------------
