@@ -4,6 +4,13 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import math
 from playbutton import PlayButton
+import music as mc
+
+# -----------------------------
+# Load Music
+# -----------------------------
+MUSIC_FOLDER = "MP3"  # Change this to your music folder path
+mc.load_music_folder(MUSIC_FOLDER)
 
 # -----------------------------
 # MediaPipe Hand Landmarker Setup
@@ -46,6 +53,11 @@ frame_idx = 0
 # -----------------------------
 left_button = PlayButton(center=(400, 600), radius=30, label="PLAY 1")
 right_button = PlayButton(center=(800, 600), radius=30, label="PLAY 2")
+# Pinch state tracking
+left_hand_pinching = False
+right_hand_pinching = False
+left_was_pinching = False
+right_was_pinching = False
 
 while cam.isOpened():
     success, frame = cam.read()
@@ -110,6 +122,74 @@ while cam.isOpened():
     # -----------------------------
     cv.putText(frame, f"Left Button Status: {'Active' if left_active else 'Inactive'}", (10, 30),
                cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255) if not left_active else (0, 255, 0), 2)
+            for tip_idx, color in zip(tip_indices, tip_colors):
+                lm = hand_landmarks[tip_idx]
+                x, y = int(lm.x * w), int(lm.y * h)
+
+                cv.circle(frame, (x, y), 15, color, cv.FILLED)
+
+                cv.putText(
+                    frame,
+                    f"({x}, {y})",
+                    (x + 20, y - 20),
+                    cv.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 255),
+                    2
+                )
+
+    # -----------------------------
+    # Music Control Logic
+    # -----------------------------
+    # Left pinch = play next song
+    if left_hand_pinching and not left_was_pinching:
+        mc.play_next()
+        print("Left pinch: Next song")
+    
+    # Right pinch = play previous song
+    if right_hand_pinching and not right_was_pinching:
+        mc.play_previous()
+        print("Right pinch: Previous song")
+
+    # Update previous states
+    left_was_pinching = left_hand_pinching
+    right_was_pinching = right_hand_pinching
+
+    # Display pinch status
+    cv.putText(
+        frame,
+        f"Left Pinch (Next): {left_hand_pinching}",
+        (10, 30),
+        cv.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0) if left_hand_pinching else (0, 0, 255),
+        2
+    )
+    
+    cv.putText(
+        frame,
+        f"Right Pinch (Prev): {right_hand_pinching}",
+        (10, 60),
+        cv.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0) if right_hand_pinching else (0, 0, 255),
+        2
+    )
+
+    # Display current song
+    song_name = mc.get_current_song_name()
+    if song_name:
+        cv.putText(
+            frame,
+            f"Playing: {song_name}",
+            (10, 90),
+            cv.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 0),
+            2
+        )
+
+    cv.imshow("Show Video", frame)
 
     cv.putText(frame, f"Right Button Status: {'Active' if right_active else 'Inactive'}", (10, 60),
                cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255) if not right_active else (0, 255, 0), 2)
