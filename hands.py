@@ -3,6 +3,13 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import math
+import music as mc
+
+# -----------------------------
+# Load Music
+# -----------------------------
+MUSIC_FOLDER = "MP3"  # Change this to your music folder path
+mc.load_music_folder(MUSIC_FOLDER)
 
 # -----------------------------
 # MediaPipe Hand Landmarker Setup
@@ -46,6 +53,8 @@ frame_idx = 0
 # Pinch state tracking
 left_hand_pinching = False
 right_hand_pinching = False
+left_was_pinching = False
+right_was_pinching = False
 
 while cam.isOpened():
     success, frame = cam.read()
@@ -142,10 +151,27 @@ while cam.isOpened():
                     2
                 )
 
+    # -----------------------------
+    # Music Control Logic
+    # -----------------------------
+    # Left pinch = play next song
+    if left_hand_pinching and not left_was_pinching:
+        mc.play_next()
+        print("Left pinch: Next song")
+    
+    # Right pinch = play previous song
+    if right_hand_pinching and not right_was_pinching:
+        mc.play_previous()
+        print("Right pinch: Previous song")
+
+    # Update previous states
+    left_was_pinching = left_hand_pinching
+    right_was_pinching = right_hand_pinching
+
     # Display pinch status
     cv.putText(
         frame,
-        f"Left Pinch: {left_hand_pinching}",
+        f"Left Pinch (Next): {left_hand_pinching}",
         (10, 30),
         cv.FONT_HERSHEY_SIMPLEX,
         0.7,
@@ -155,13 +181,26 @@ while cam.isOpened():
     
     cv.putText(
         frame,
-        f"Right Pinch: {right_hand_pinching}",
+        f"Right Pinch (Prev): {right_hand_pinching}",
         (10, 60),
         cv.FONT_HERSHEY_SIMPLEX,
         0.7,
         (0, 255, 0) if right_hand_pinching else (0, 0, 255),
         2
     )
+
+    # Display current song
+    song_name = mc.get_current_song_name()
+    if song_name:
+        cv.putText(
+            frame,
+            f"Playing: {song_name}",
+            (10, 90),
+            cv.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 0),
+            2
+        )
 
     cv.imshow("Show Video", frame)
 
