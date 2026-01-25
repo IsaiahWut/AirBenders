@@ -4,6 +4,7 @@ import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import threading
+import scipy.signal as signal
 
 # -----------------------------
 # Track State Management
@@ -22,7 +23,7 @@ class TrackState:
         
         # Resample if needed
         if self.sample_rate != target_sample_rate:
-            import scipy.signal as signal
+            print(f"  Resampling from {self.sample_rate}Hz to {target_sample_rate}Hz...")
             num_samples = int(len(self.audio_data) * target_sample_rate / self.sample_rate)
             self.audio_data = signal.resample(self.audio_data, num_samples)
             self.sample_rate = target_sample_rate
@@ -32,9 +33,11 @@ class TrackState:
         if current_channels != target_channels:
             if current_channels == 1 and target_channels == 2:
                 # Mono to stereo: duplicate the channel
+                print(f"  Converting mono to stereo...")
                 self.audio_data = np.repeat(self.audio_data, 2, axis=1)
             elif current_channels == 2 and target_channels == 1:
                 # Stereo to mono: average the channels
+                print(f"  Converting stereo to mono...")
                 self.audio_data = np.mean(self.audio_data, axis=1, keepdims=True)
         
         self.position = 0.0  # Position in seconds
@@ -48,32 +51,7 @@ class TrackState:
         self.playback_position = 0  # Position in samples
         self.lock = threading.Lock()
         
-    def audio_callback(self, outdata, frames, time_info, status):
-        """Callback function for audio playback"""
-        with self.lock:
-            if not self.is_playing:
-                outdata.fill(0)
-                return
-                
-            start_frame = self.playback_position
-            end_frame = start_frame + frames
-            
-            # Get the audio chunk
-            if end_frame <= len(self.audio_data):
-                chunk = self.audio_data[start_frame:end_frame]
-            else:
-                # Handle end of file
-                remaining = len(self.audio_data) - start_frame
-                if remaining > 0:
-                    chunk = self.audio_data[start_frame:]
-                    chunk = np.pad(chunk, ((0, frames - remaining), (0, 0)), mode='constant')
-                else:
-                    chunk = np.zeros((frames, self.audio_data.shape[1]))
-                self.is_playing = False
-            
-            # Apply volume and output
-            outdata[:] = chunk * self.volume
-            self.playback_position += frames
+        print(f"  Duration: {self.duration:.2f}s, Sample rate: {self.sample_rate}Hz, Channels: {self.audio_data.shape[1]}")
 
 track_states = {}  # index -> TrackState
 mixer_streams = []  # Keep track of all active streams
@@ -138,20 +116,24 @@ def load_music_folder(folder_path):
             track_states[i] = TrackState(songs[i], TARGET_SAMPLE_RATE, TARGET_CHANNELS)
         except Exception as e:
             print(f"Error loading {songs[i]}: {e}")
+            import traceback
+            traceback.print_exc()
 
     if not songs:
         raise ValueError("No mp3 files found")
     
     # Initialize the mixer with standard settings
+    print(f"Initializing audio mixer at {TARGET_SAMPLE_RATE}Hz, {TARGET_CHANNELS} channels...")
     mixer = AudioMixer(TARGET_SAMPLE_RATE)
     output_stream = sd.OutputStream(
         samplerate=TARGET_SAMPLE_RATE,
         channels=TARGET_CHANNELS,
-        callback=mixer.callback
+        callback=mixer.callback,
+        blocksize=2048
     )
     output_stream.start()
     
-    print(f"Loaded {len(songs)} songs")
+    print(f"Loaded {len(songs)} songs successfully!")
 
 # -----------------------------
 # Update all playing tracks
