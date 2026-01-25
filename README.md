@@ -1,6 +1,6 @@
 # AirBenders — RoseHacks 2026
 
-**A gesture-controlled DJ applications**
+**A gesture-controlled DJ application**
 
 A gesture-controlled DJ application that simulates core DJ controller functionality without any physical hardware. This project uses hand tracking to allow users to mix, play, and manipulate music tracks using natural hand gestures.
 
