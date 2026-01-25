@@ -16,8 +16,9 @@ class TrackState:
         self.position = 0.0
         self.last_update_time = None
         self.is_scrubbing = False
-        self.is_playing = False  # True if track is currently playing
-        self.was_playing_before_scrub = False  # Track if it was playing before scrubbing started
+        self.is_playing = False
+        self.was_playing_before_scrub = False
+        self.volume = 1.0  # 🔊 DEFAULT MAX VOLUME
 
 track_states = {}  # index -> TrackState
 
@@ -31,8 +32,10 @@ def load_music_folder(folder_path):
     songs.sort()
     track_states = {}
     active_track = -1
+
     for i in range(len(songs)):
         track_states[i] = TrackState()
+
     if not songs:
         raise ValueError("No mp3 files found")
 
@@ -40,10 +43,10 @@ def load_music_folder(folder_path):
 # Update active track time
 # -----------------------------
 def update_active_track_position():
-    """Call every frame to update currently playing track's position"""
     global active_track
     if active_track < 0:
         return
+
     state = track_states[active_track]
     if state.is_playing and not state.is_scrubbing:
         now = time.time()
@@ -52,7 +55,26 @@ def update_active_track_position():
         state.last_update_time = now
 
 # -----------------------------
-# Get position (READ ONLY)
+# Volume Control (NEW)
+# -----------------------------
+def set_volume(index, volume):
+    if index < 0 or index >= len(songs):
+        return
+
+    volume = max(0.0, min(1.0, volume))
+    track_states[index].volume = volume
+
+    # Apply immediately if this track is active
+    if active_track == index:
+        pygame.mixer.music.set_volume(volume)
+
+def get_volume(index):
+    if index < 0 or index >= len(songs):
+        return 0.0
+    return track_states[index].volume
+
+# -----------------------------
+# Get position
 # -----------------------------
 def get_position(index):
     if index < 0 or index >= len(songs):
@@ -60,39 +82,38 @@ def get_position(index):
     return track_states[index].position
 
 # -----------------------------
-# Play/Pause controls (PlayButton)
+# Play / Pause
 # -----------------------------
 def toggle_play(index):
-    """Toggle play/pause for the given track"""
     global active_track
     if index < 0 or index >= len(songs):
         return
+
     state = track_states[index]
 
     if state.is_playing:
-        # Pause
         pygame.mixer.music.stop()
         state.is_playing = False
         state.last_update_time = None
         if active_track == index:
             active_track = -1
     else:
-        # Stop any other playing track
+        # Stop other track
         if active_track >= 0 and active_track != index:
-            other_state = track_states[active_track]
+            other = track_states[active_track]
             pygame.mixer.music.stop()
-            other_state.is_playing = False
-            other_state.last_update_time = None
-        
-        # Play from saved position
+            other.is_playing = False
+            other.last_update_time = None
+
         pygame.mixer.music.load(songs[index])
+        pygame.mixer.music.set_volume(state.volume)  # 🔊 APPLY STORED VOLUME
         pygame.mixer.music.play(start=state.position)
+
         state.is_playing = True
         state.last_update_time = time.time()
         active_track = index
 
 def stop(index):
-    """Stop a track completely"""
     global active_track
     state = track_states.get(index)
     if state:
@@ -104,14 +125,14 @@ def stop(index):
             active_track = -1
 
 # -----------------------------
-# Jog Wheel Scrub (fast forward / rewind)
+# Jog Wheel Scrub
 # -----------------------------
 def scrub(delta, index):
     if index < 0 or index >= len(songs):
         return
+
     state = track_states[index]
 
-    # First time scrubbing - save playing state and pause if needed
     if not state.is_scrubbing:
         state.was_playing_before_scrub = state.is_playing
         if state.is_playing:
@@ -119,28 +140,32 @@ def scrub(delta, index):
             state.is_playing = False
 
     state.is_scrubbing = True
-    state.position += delta * 0.5  # sensitivity
+    state.position += delta * 0.5
     state.position = max(0, state.position)
     state.last_update_time = time.time()
 
 def end_scrub(index):
-    """End scrubbing and optionally resume playback"""
     global active_track
     if index < 0 or index >= len(songs):
         return
+
     state = track_states[index]
-    
+
     if state.is_scrubbing:
         state.is_scrubbing = False
-        # Only resume if it was playing before we started scrubbing
         if state.was_playing_before_scrub:
             pygame.mixer.music.load(songs[index])
+            pygame.mixer.music.set_volume(state.volume)  # 🔊 APPLY VOLUME
             pygame.mixer.music.play(start=state.position)
             state.is_playing = True
             state.last_update_time = time.time()
             active_track = index
+
         state.was_playing_before_scrub = False
 
+# -----------------------------
+# Helpers
+# -----------------------------
 def is_playing(index=None):
     if index is None:
         index = active_track
