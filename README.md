@@ -1,4 +1,4 @@
-# 🎧 AirBenders — RoseHacks 2026
+# AirBenders — RoseHacks 2026
 
 **A gesture-controlled DJ application that brings the power of a DJ console to your hands — literally.**
 
@@ -6,7 +6,7 @@ No physical controllers needed! **AirBenders** uses computer vision and hand tra
 
 ---
 
-## 🌟 Features
+## Features
 
 ### Deck Controls
 * **Play / Pause:** Simple "Pinch" gesture to start or stop the music.
@@ -22,14 +22,6 @@ No physical controllers needed! **AirBenders** uses computer vision and hand tra
 * **Frequency Visualizer:** Dynamic real-time visualization of audio tracks.
 * **Active Deck Logic:** Highlights the active deck with a color-coded UI.
 * **Song List:** Browse, select, and load music tracks with gesture-based toggling.
-
----
-
-## 🎥 Demo
-
-![AirBenders Demo](https://via.placeholder.com/800x400?text=AirBenders+Demo+Placeholder)
-
-> **Quick Look:** Pinch to play/load tracks, claw to adjust volume, and use jog wheels to scrub in real-time.
 
 ---
 
@@ -75,13 +67,6 @@ No physical controllers needed! **AirBenders** uses computer vision and hand tra
 | **Claw** (5 Fingers) | **Volume Control** | Open/Close your hand (claw shape) to raise or lower volume. |
 | **Jog Wheel** | **Scrub / Scratch** | Interact with the virtual wheel to seek through the track. |
 | **Swipe/Point** | **Song Selection** | Highlight and load songs from the library. |
-
----
-
-## 🎯 Hackathon Goals
-* **Hardware-Free DJing:** Achieve real-time control without physical knobs or sliders.
-* **Immersive UX:** Create an interactive experience that feels responsive.
-* **Innovation:** Showcase the intersection of music theory and computer vision.
 
 ---
 
