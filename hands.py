@@ -60,26 +60,22 @@ class ReleaseCallback:
     def __init__(self, index):
         self.index = index
     def __call__(self):
-        pass  # do nothing now
+        mc.end_scrub(self.index)  # Resume playback after scrubbing
 
 # -----------------------------
 # Camera
 # -----------------------------
-cam = cv.VideoCapture(0)
+cam = cv.VideoCapture(1)
 frame_idx = 0
 
 # -----------------------------
 # UI Setup
 # -----------------------------
-h, w = 720, 1280
-center_x = w // 2
-button_y = 600
-
-left_button = PlayButton(center=(center_x - 200, button_y), radius=30, label="PLAY 1")
-right_button = PlayButton(center=(center_x + 200, button_y), radius=30, label="PLAY 2")
-
-left_jog = JogWheel(center=(center_x - 350, 400), radius=160)
-right_jog = JogWheel(center=(center_x + 350, 400), radius=160)
+left_button = None
+right_button = None
+left_jog = None
+right_jog = None
+visualizer = None
 
 pinching_previous = set()
 
@@ -91,34 +87,48 @@ while cam.isOpened():
     if not success:
         continue
     
+    # Update active track position
+    mc.update_active_track_position()
+    
     frame = cv.flip(frame, 1)
-
     h, w, _ = frame.shape
 
-    # Convert to RGB for MediaPipe
-    if 'visualizer' not in locals():
+    # Initialize UI elements with actual camera dimensions (only once)
+    if left_button is None:
+        center_x = w // 2
+        button_y = int(h * 0.83)  # 83% down the screen
+        left_button = PlayButton(center=(center_x - 200, button_y), radius=30, label="PLAY 1")
+        right_button = PlayButton(center=(center_x + 200, button_y), radius=30, label="PLAY 2")
+        
+        jog_y = int(h * 0.55)  # 55% down the screen
+        left_jog = JogWheel(center=(center_x - 350, jog_y), radius=160)
+        right_jog = JogWheel(center=(center_x + 350, jog_y), radius=160)
+
+    # Initialize visualizer
+    if visualizer is None:
         visualizer = DJVisualizer(w, h)
 
+    # -----------------------------
+    # Hand Detection
+    # -----------------------------
     rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-    result = landmarker.detect_for_video(mp_image, frame_idx)
-    frame_idx += 1
-
-    mc.update_active_track_position()
+    
+    timestamp_ms = int(time.time() * 1000)
+    detection_result = landmarker.detect_for_video(mp_image, timestamp_ms)
+    
+    # Collect pinch positions
     pinch_positions = []
-
-    if result.hand_landmarks:
-        for hand_landmarks in result.hand_landmarks:
-            pinching = is_pinching(hand_landmarks, w, h)
-            index_tip = hand_landmarks[8]
-            cx, cy = int(index_tip.x * w), int(index_tip.y * h)
-            if pinching:
+    if detection_result.hand_landmarks:
+        for hand_landmarks in detection_result.hand_landmarks:
+            if is_pinching(hand_landmarks, w, h):
+                thumb_tip = hand_landmarks[4]
+                index_tip = hand_landmarks[8]
+                cx = int((thumb_tip.x + index_tip.x) / 2 * w)
+                cy = int((thumb_tip.y + index_tip.y) / 2 * h)
                 pinch_positions.append((cx, cy))
-
-            for i in [4, 8, 12, 16, 20]:
-                lm = hand_landmarks[i]
-                fx, fy = int(lm.x * w), int(lm.y * h)
-                cv.circle(frame, (fx, fy), 10, (255, 255, 255), 2)
+                # Draw pinch indicator
+                cv.circle(frame, (cx, cy), 10, (0, 255, 0), -1)
 
     # -----------------------------
     # Play Button Logic

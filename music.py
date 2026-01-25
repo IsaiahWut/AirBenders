@@ -99,26 +99,28 @@ def scrub(delta, index):
     state = track_states[index]
 
     # Pause the track while scrubbing
-    if state.is_playing:
+    if state.is_playing and not state.is_scrubbing:
         pygame.mixer.music.stop()
-        state.is_playing = False
 
     state.is_scrubbing = True
     state.position += delta * 0.5  # sensitivity
     state.position = max(0, state.position)
     state.last_update_time = time.time()
 
-def resume_scrub(index):
-    """Resume playback after scrubbing"""
+def end_scrub(index):
+    """End scrubbing and optionally resume playback"""
     if index < 0 or index >= len(songs):
         return
     state = track_states[index]
+    
     if state.is_scrubbing:
-        pygame.mixer.music.load(songs[index])
-        pygame.mixer.music.play(start=state.position)
         state.is_scrubbing = False
-        state.is_playing = True
-        state.last_update_time = time.time()
+        # If the track was playing before scrubbing, resume it
+        if active_track == index:
+            pygame.mixer.music.load(songs[index])
+            pygame.mixer.music.play(start=state.position)
+            state.is_playing = True
+            state.last_update_time = time.time()
 
 def is_playing(index=None):
     if index is None:
