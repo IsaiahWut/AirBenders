@@ -65,7 +65,7 @@ class ReleaseCallback:
 # -----------------------------
 # Camera
 # -----------------------------
-cam = cv.VideoCapture(1)
+cam = cv.VideoCapture(0)
 frame_idx = 0
 
 # -----------------------------
@@ -187,16 +187,18 @@ while cam.isOpened():
     right_time = mc.get_position(right_song_index)
     active = mc.get_active_track()
 
-    cv.putText(frame, f"PLAY 1: {'Active' if left_active else 'Inactive'}", (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0) if left_active else (0, 0, 255), 2)
-    cv.putText(frame, f"PLAY 2: {'Active' if right_active else 'Inactive'}", (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0) if right_active else (0, 0, 255), 2)
-    cv.putText(frame, f"Left Song: {mc.get_current_song_name(left_song_index)}", (10, 90), cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-    cv.putText(frame, f"Right Song: {mc.get_current_song_name(right_song_index)}", (10, 120), cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+    # Draw time under each jog wheel
+    left_time_text = format_time(left_time)
+    right_time_text = format_time(right_time)
+
+    left_time_pos = (left_jog.cx - 40, left_jog.cy + left_jog.radius + 50)
+    right_time_pos = (right_jog.cx - 40, right_jog.cy + right_jog.radius + 50)
 
     left_color = (0, 255, 255) if active == left_song_index else (100, 100, 100)
     right_color = (0, 255, 255) if active == right_song_index else (100, 100, 100)
 
-    cv.putText(frame, f"Left Time: {format_time(left_time)}", (10, 150), cv.FONT_HERSHEY_SIMPLEX, 0.6, left_color, 2)
-    cv.putText(frame, f"Right Time: {format_time(right_time)}", (10, 180), cv.FONT_HERSHEY_SIMPLEX, 0.6, right_color, 2)
+    cv.putText(frame, left_time_text, left_time_pos, cv.FONT_HERSHEY_SIMPLEX, 0.6, left_color, 2)
+    cv.putText(frame, right_time_text, right_time_pos, cv.FONT_HERSHEY_SIMPLEX, 0.6, right_color, 2)
 
     if active >= 0:
         cv.putText(frame, f"NOW PLAYING: {mc.get_current_song_name(active)}", (10, 210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
