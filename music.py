@@ -12,13 +12,30 @@ songs = []
 active_track = -1  # Currently active track (for display purposes)
 
 class TrackState:
-    def __init__(self, filepath):
+    def __init__(self, filepath, target_sample_rate=44100, target_channels=2):
         self.filepath = filepath
         self.audio_data, self.sample_rate = sf.read(filepath, dtype='float32')
         
-        # Convert stereo to mono if needed, or handle stereo
+        # Convert to mono if single channel
         if len(self.audio_data.shape) == 1:
             self.audio_data = self.audio_data.reshape(-1, 1)
+        
+        # Resample if needed
+        if self.sample_rate != target_sample_rate:
+            import scipy.signal as signal
+            num_samples = int(len(self.audio_data) * target_sample_rate / self.sample_rate)
+            self.audio_data = signal.resample(self.audio_data, num_samples)
+            self.sample_rate = target_sample_rate
+        
+        # Convert to target number of channels
+        current_channels = self.audio_data.shape[1]
+        if current_channels != target_channels:
+            if current_channels == 1 and target_channels == 2:
+                # Mono to stereo: duplicate the channel
+                self.audio_data = np.repeat(self.audio_data, 2, axis=1)
+            elif current_channels == 2 and target_channels == 1:
+                # Stereo to mono: average the channels
+                self.audio_data = np.mean(self.audio_data, axis=1, keepdims=True)
         
         self.position = 0.0  # Position in seconds
         self.last_update_time = None
@@ -110,28 +127,29 @@ def load_music_folder(folder_path):
     track_states = {}
     active_track = -1
 
+    # Use standard sample rate and stereo
+    TARGET_SAMPLE_RATE = 44100
+    TARGET_CHANNELS = 2
+
     print("Loading songs...")
     for i in range(len(songs)):
         try:
             print(f"Loading {os.path.basename(songs[i])}...")
-            track_states[i] = TrackState(songs[i])
+            track_states[i] = TrackState(songs[i], TARGET_SAMPLE_RATE, TARGET_CHANNELS)
         except Exception as e:
             print(f"Error loading {songs[i]}: {e}")
 
     if not songs:
         raise ValueError("No mp3 files found")
     
-    # Initialize the mixer
-    if track_states:
-        sample_rate = track_states[0].sample_rate
-        channels = track_states[0].audio_data.shape[1]
-        mixer = AudioMixer(sample_rate)
-        output_stream = sd.OutputStream(
-            samplerate=sample_rate,
-            channels=channels,
-            callback=mixer.callback
-        )
-        output_stream.start()
+    # Initialize the mixer with standard settings
+    mixer = AudioMixer(TARGET_SAMPLE_RATE)
+    output_stream = sd.OutputStream(
+        samplerate=TARGET_SAMPLE_RATE,
+        channels=TARGET_CHANNELS,
+        callback=mixer.callback
+    )
+    output_stream.start()
     
     print(f"Loaded {len(songs)} songs")
 
