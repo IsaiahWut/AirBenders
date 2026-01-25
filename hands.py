@@ -1,3 +1,4 @@
+import os
 import cv2 as cv
 import mediapipe as mp
 from mediapipe.tasks import python
@@ -8,6 +9,8 @@ from playbutton import PlayButton
 from jogwheel import JogWheel
 import music as mc
 import time
+import songlist  # your songlist.py file
+from load import LoadButton
 
 # -----------------------------
 # Load Music
@@ -15,8 +18,11 @@ import time
 MUSIC_FOLDER = "MP3"
 mc.load_music_folder(MUSIC_FOLDER)
 
-left_song_index = 0
-right_song_index = 1 if len(mc.songs) > 1 else 0
+# -----------------------------
+# Deck Initialization (empty)
+# -----------------------------
+left_song_index = -1
+right_song_index = -1
 
 # -----------------------------
 # MediaPipe Hand Landmarker Setup
@@ -32,8 +38,16 @@ options = HandLandmarkerOptions(
     running_mode=VisionRunningMode.VIDEO,
     num_hands=2
 )
-
 landmarker = HandLandmarker.create_from_options(options)
+
+# -----------------------------
+# Song List Panel
+# -----------------------------
+song_names = [os.path.basename(s) for s in mc.songs]
+song_list_panel = None
+song_list_width = 250
+item_height = 30
+highlighted_index = None  # persistent toggle highlight
 
 # -----------------------------
 # Pinch Detection
@@ -54,29 +68,29 @@ class ScrubCallback:
     def __init__(self, index):
         self.index = index
     def __call__(self, delta):
-        mc.scrub(delta, self.index)
+        if self.index >= 0:
+            mc.scrub(delta, self.index)
 
 class ReleaseCallback:
     def __init__(self, index):
         self.index = index
     def __call__(self):
-        mc.end_scrub(self.index)  # Resume playback after scrubbing
+        if self.index >= 0:
+            mc.end_scrub(self.index)
 
 # -----------------------------
-# Camera
+# Camera & UI
 # -----------------------------
 cam = cv.VideoCapture(0)
 frame_idx = 0
 
-# -----------------------------
-# UI Setup
-# -----------------------------
 left_button = None
 right_button = None
+left_load_button = None
+right_load_button = None
 left_jog = None
 right_jog = None
 visualizer = None
-
 pinching_previous = set()
 
 # -----------------------------
@@ -87,24 +101,32 @@ while cam.isOpened():
     if not success:
         continue
     
-    # Update active track position
     mc.update_active_track_position()
-    
     frame = cv.flip(frame, 1)
     h, w, _ = frame.shape
 
-    # Initialize UI elements with actual camera dimensions (only once)
+    # Initialize song list (higher on screen)
+    if song_list_panel is None:
+        song_list_y = h - item_height * len(song_names) - 120  # move up 100+ px
+        song_list_panel = songlist.SongList(
+            song_names,
+            position=(10, song_list_y),
+            width=song_list_width,
+            item_height=item_height
+        )
+
+    # Initialize UI elements
     if left_button is None:
         center_x = w // 2
-        button_y = int(h * 0.83)  # 83% down the screen
+        button_y = int(h * 0.83)
         left_button = PlayButton(center=(center_x - 200, button_y), radius=30, label="PLAY 1")
         right_button = PlayButton(center=(center_x + 200, button_y), radius=30, label="PLAY 2")
-        
-        jog_y = int(h * 0.55)  # 55% down the screen
+        left_load_button = LoadButton(center=(center_x - 200, button_y - 70), radius=25, label="LOAD")
+        right_load_button = LoadButton(center=(center_x + 200, button_y - 70), radius=25, label="LOAD")
+        jog_y = int(h * 0.55)
         left_jog = JogWheel(center=(center_x - 350, jog_y), radius=160)
         right_jog = JogWheel(center=(center_x + 350, jog_y), radius=160)
 
-    # Initialize visualizer
     if visualizer is None:
         visualizer = DJVisualizer(w, h)
 
@@ -113,11 +135,9 @@ while cam.isOpened():
     # -----------------------------
     rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-    
     timestamp_ms = int(time.time() * 1000)
     detection_result = landmarker.detect_for_video(mp_image, timestamp_ms)
-    
-    # Collect pinch positions
+
     pinch_positions = []
     if detection_result.hand_landmarks:
         for hand_landmarks in detection_result.hand_landmarks:
@@ -127,17 +147,53 @@ while cam.isOpened():
                 cx = int((thumb_tip.x + index_tip.x) / 2 * w)
                 cy = int((thumb_tip.y + index_tip.y) / 2 * h)
                 pinch_positions.append((cx, cy))
-                # Draw pinch indicator
                 cv.circle(frame, (cx, cy), 10, (0, 255, 0), -1)
 
     # -----------------------------
-    # Play Button Logic
+    # Song List Pinch Toggle
     # -----------------------------
-    left_active = any(left_button.contains(x, y) for x, y in pinch_positions)
-    right_active = any(right_button.contains(x, y) for x, y in pinch_positions)
+    for px, py in pinch_positions:
+        idx = song_list_panel.check_pinch([(px, py)])
+        if idx is not None:
+            if highlighted_index == idx:
+                highlighted_index = None  # toggle off
+            else:
+                highlighted_index = idx  # toggle on
 
-    left_button.draw(frame, active=left_active)
-    right_button.draw(frame, active=right_active)
+    song_list_panel.draw(frame, highlight_index=highlighted_index)
+
+    # -----------------------------
+    # Load Buttons Logic (active only while pinched)
+    # -----------------------------
+    left_load_active = False
+    right_load_active = False
+    for px, py in pinch_positions:
+        if highlighted_index is not None:
+            if left_load_button.contains(px, py):
+                left_song_index = highlighted_index
+                highlighted_index = None
+                left_load_active = True
+            if right_load_button.contains(px, py):
+                right_song_index = highlighted_index
+                highlighted_index = None
+                right_load_active = True
+
+    # -----------------------------
+    # Play & Load Button States
+    # -----------------------------
+    left_state = "empty" if left_song_index < 0 else "playing" if mc.is_playing(left_song_index) else "loaded"
+    right_state = "empty" if right_song_index < 0 else "playing" if mc.is_playing(right_song_index) else "loaded"
+    left_button.draw(frame, state=left_state)
+    right_button.draw(frame, state=right_state)
+
+    left_load_button.draw(frame, active=left_load_active)
+    right_load_button.draw(frame, active=right_load_active)
+
+    # -----------------------------
+    # Trigger Play if Pinched
+    # -----------------------------
+    left_active = left_song_index >= 0 and any(left_button.contains(x, y) for x, y in pinch_positions)
+    right_active = right_song_index >= 0 and any(right_button.contains(x, y) for x, y in pinch_positions)
 
     if left_active and left_button.center not in pinching_previous:
         mc.toggle_play(left_song_index)
@@ -151,46 +207,38 @@ while cam.isOpened():
         pinching_previous.add(right_button.center)
 
     # -----------------------------
-    # Jog Wheels Only Scrub
+    # Jog Wheels
     # -----------------------------
     left_pinching_jog = False
     right_pinching_jog = False
-
     for cx, cy in pinch_positions:
-        if left_jog.contains(cx, cy):
+        if left_song_index >= 0 and left_jog.contains(cx, cy):
             left_pinching_jog = True
             left_jog.update(frame, cx, cy, True, ScrubCallback(left_song_index), ReleaseCallback(left_song_index))
-        if right_jog.contains(cx, cy):
+        if right_song_index >= 0 and right_jog.contains(cx, cy):
             right_pinching_jog = True
             right_jog.update(frame, cx, cy, True, ScrubCallback(right_song_index), ReleaseCallback(right_song_index))
-
     if not left_pinching_jog:
         left_jog.check_release()
     if not right_pinching_jog:
         right_jog.check_release()
 
-    # -----------------------------
     # Spin visuals
-    # -----------------------------
-    if mc.get_active_track() == left_song_index and mc.is_playing(left_song_index):
+    if left_song_index >= 0 and mc.get_active_track() == left_song_index and mc.is_playing(left_song_index):
         left_jog.angle += 0.05
-    if mc.get_active_track() == right_song_index and mc.is_playing(right_song_index):
+    if right_song_index >= 0 and mc.get_active_track() == right_song_index and mc.is_playing(right_song_index):
         right_jog.angle += 0.05
 
     left_jog.draw(frame)
     right_jog.draw(frame)
 
-    # -----------------------------
-    # Display Status
-    # -----------------------------
-    left_time = mc.get_position(left_song_index)
-    right_time = mc.get_position(right_song_index)
+    # Display Time
+    left_time = mc.get_position(left_song_index) if left_song_index >= 0 else 0
+    right_time = mc.get_position(right_song_index) if right_song_index >= 0 else 0
     active = mc.get_active_track()
 
-    # Draw time under each jog wheel
     left_time_text = format_time(left_time)
     right_time_text = format_time(right_time)
-
     left_time_pos = (left_jog.cx - 40, left_jog.cy + left_jog.radius + 50)
     right_time_pos = (right_jog.cx - 40, right_jog.cy + right_jog.radius + 50)
 
@@ -201,14 +249,15 @@ while cam.isOpened():
     cv.putText(frame, right_time_text, right_time_pos, cv.FONT_HERSHEY_SIMPLEX, 0.6, right_color, 2)
 
     if active >= 0:
-        cv.putText(frame, f"NOW PLAYING: {mc.get_current_song_name(active)}", (10, 210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv.putText(frame, f"NOW PLAYING: {mc.get_current_song_name(active)}", (10, 210),
+                   cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-    # Determine which decks are playing
-    left_playing = (mc.get_active_track() == left_song_index and mc.is_playing(left_song_index))
-    right_playing = (mc.get_active_track() == right_song_index and mc.is_playing(right_song_index))
-
+    # Visualizer
+    left_playing = left_song_index >= 0 and mc.get_active_track() == left_song_index and mc.is_playing(left_song_index)
+    right_playing = right_song_index >= 0 and mc.get_active_track() == right_song_index and mc.is_playing(right_song_index)
     visualizer.draw_all(frame, left_playing, right_playing)
-    
+
+    # Show Frame
     cv.imshow("Show Video", frame)
     if cv.waitKey(20) & 0xFF == ord('q'):
         break
