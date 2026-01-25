@@ -79,6 +79,7 @@ A gesture-controlled DJ application that simulates core DJ controller functional
 [ ] Crossfader implementation for smooth transitions.
 
 [ ] Custom user sound effects (SFX) pads.
+
 ---
 
 ## 📂 Project Structure
