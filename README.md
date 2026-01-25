@@ -1,4 +1,4 @@
-# AirBenders — RoseHacks 2026
+# AirBenders 🎚️ 🎛️ 🎚️ — RoseHacks 🌹 2026
 
 **A gesture-controlled DJ application**
 
