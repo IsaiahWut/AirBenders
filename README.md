@@ -1,8 +1,8 @@
 # AirBenders — RoseHacks 2026
 
-**A gesture-controlled DJ application that brings the power of a DJ console to your hands — literally.**
+**A gesture-controlled DJ applications**
 
-No physical controllers needed! **AirBenders** uses computer vision and hand tracking to let users mix, manipulate, and play music tracks using natural hand gestures in real-time. This project simulates the core functionality of a professional DJ setup in an intuitive, interactive, and fun way.
+A gesture-controlled DJ application that simulates core DJ controller functionality without any physical hardware. This project uses hand tracking to allow users to mix, play, and manipulate music tracks using natural hand gestures.
 
 ---
 
@@ -39,7 +39,7 @@ No physical controllers needed! **AirBenders** uses computer vision and hand tra
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Installation & Setup
 
@@ -59,7 +59,7 @@ No physical controllers needed! **AirBenders** uses computer vision and hand tra
 
 ---
 
-## 🎮 How to Use
+## How to Use
 
 | Gesture | Action | Description |
 | :--- | :--- | :--- |
@@ -68,6 +68,17 @@ No physical controllers needed! **AirBenders** uses computer vision and hand tra
 | **Jog Wheel** | **Scrub / Scratch** | Interact with the virtual wheel to seek through the track. |
 | **Swipe/Point** | **Song Selection** | Highlight and load songs from the library. |
 
+
+---
+
+## Future Plans
+[ ] AI-assisted auto-mixing and beat matching.
+
+[ ] Recording and exporting DJ sets.
+
+[ ] Crossfader implementation for smooth transitions.
+
+[ ] Custom user sound effects (SFX) pads.
 ---
 
 ## 📂 Project Structure
@@ -88,8 +99,9 @@ AirBenders/
 ```
 
 👥 Contributors
-Isaiah Alcayde – Lead Developer & UI/UX
 
-Paolo Uytiepo – Hand Tracking & Visual Effects
+Isaiah Alcayde
 
-Joshua Yu – Music Engine & Playback
+Paolo Uytiepo
+
+Joshua Yu
