@@ -7,14 +7,13 @@ class DJVisualizer:
         self.width = frame_width
         self.height = frame_height
         
-        # Separate waveforms for left and right decks
+        #  waveforms for left and right decks
         self.left_waveform = []
         self.right_waveform = []
         self.line_speed = 3
         
     def get_audio_level(self):
         """Get current audio amplitude (0-100)"""
-        # Simplified approach: pygame doesn't give direct waveform access
         if pygame.mixer.music.get_busy():
             return np.random.randint(20, 80)
         return 0
@@ -30,14 +29,12 @@ class DJVisualizer:
             }
             waveform_data.append(new_point)
         
-        # Move all points left
         for point in waveform_data:
             point['x'] -= self.line_speed
         
-        # Remove off-screen points
         waveform_data[:] = [p for p in waveform_data if p['x'] > 0]
         
-        # Draw waveform line
+        # waveform line
         if len(waveform_data) > 1:
             for i in range(len(waveform_data) - 1):
                 pt1 = (waveform_data[i]['x'], waveform_data[i]['y'])
@@ -48,17 +45,18 @@ class DJVisualizer:
                 
                 cv.line(frame, pt1, pt2, color, 3)
         
-        # Center reference line
-        cv.line(frame, (0, center_y), (self.width, center_y), (50, 50, 50), 1)
+        # border lines
+        border_offset = 60
+        cv.line(frame, (0, center_y - border_offset), (self.width, center_y - border_offset), (100, 100, 100), 2)
+        cv.line(frame, (0, center_y + border_offset), (self.width, center_y + border_offset), (100, 100, 100), 2)
         
-        # Label
-        cv.putText(frame, label, (10, center_y - 50), 
+        cv.putText(frame, label, (10, center_y - border_offset - 10), 
                    cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
     
     def draw_dual_waveforms(self, frame, left_playing=False, right_playing=False):
         """Draw two separate waveforms for left and right decks"""
-        left_y = int(self.height * 0.15)
-        right_y = int(self.height * 0.30)
+        left_y = int(self.height * 0.12)   
+        right_y = int(self.height * 0.27)   
         
         if left_playing:
             self.draw_waveform(frame, self.left_waveform, left_y, (0, 100), "LEFT DECK")
@@ -71,6 +69,5 @@ class DJVisualizer:
             self.right_waveform = []
     
     def draw_all(self, frame, left_playing=False, right_playing=False):
-        """Draw all UI elements (no volume knob)"""
+        """Draw all UI elements"""
         self.draw_dual_waveforms(frame, left_playing, right_playing)
-        # Volume knob removed for now
