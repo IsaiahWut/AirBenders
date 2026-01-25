@@ -46,8 +46,8 @@ landmarker = HandLandmarker.create_from_options(options)
 # -----------------------------
 song_names = [os.path.basename(s) for s in mc.songs]
 song_list_panel = None
-song_list_width = 250
-item_height = 30
+song_list_width = 350
+item_height = 45
 highlighted_index = None
 
 # -----------------------------
@@ -159,11 +159,21 @@ while cam.isOpened():
     for px, py in pinch_positions:
         if highlighted_index is not None:
             if left_load_button.contains(px, py):
+                # Stop current song if playing
+                if left_song_index >= 0:
+                    mc.stop(left_song_index)
                 left_song_index = highlighted_index
+                # Reset new song to position 0
+                mc.stop(left_song_index)
                 highlighted_index = None
                 left_load_active = True
             if right_load_button.contains(px, py):
+                # Stop current song if playing
+                if right_song_index >= 0:
+                    mc.stop(right_song_index)
                 right_song_index = highlighted_index
+                # Reset new song to position 0
+                mc.stop(right_song_index)
                 highlighted_index = None
                 right_load_active = True
 
