@@ -93,7 +93,6 @@ while cam.isOpened():
     
     frame = cv.flip(frame, 1)
 
-    frame = cv.flip(frame, 1)
     h, w, _ = frame.shape
 
     # Convert to RGB for MediaPipe
