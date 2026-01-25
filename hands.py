@@ -78,7 +78,7 @@ class ReleaseCallback:
 # -----------------------------
 # Camera & UI
 # -----------------------------
-cam = cv.VideoCapture(0)
+cam = cv.VideoCapture(1)
 frame_idx = 0
 left_button = right_button = left_load_button = right_load_button = None
 left_jog = right_jog = None
@@ -93,7 +93,7 @@ while cam.isOpened():
     success, frame = cam.read()
     if not success: continue
 
-    mc.update_active_track_position()
+    mc.update_active_track_position()  # Now updates ALL playing tracks
     frame = cv.flip(frame, 1)
     h, w, _ = frame.shape
 
@@ -202,18 +202,17 @@ while cam.isOpened():
     if not left_pinching_jog: left_jog.check_release()
     if not right_pinching_jog: right_jog.check_release()
 
-    # Spin visuals
-    if left_song_index>=0 and mc.get_active_track()==left_song_index and mc.is_playing(left_song_index):
+    # Spin visuals - spin if THIS deck is playing (not just active)
+    if left_song_index>=0 and mc.is_playing(left_song_index):
         left_jog.angle += 0.05
-    if right_song_index>=0 and mc.get_active_track()==right_song_index and mc.is_playing(right_song_index):
+    if right_song_index>=0 and mc.is_playing(right_song_index):
         right_jog.angle += 0.05
     left_jog.draw(frame)
     right_jog.draw(frame)
 
-   # -----------------------------
+    # -----------------------------
     # Volume Sliders (flipped hands)
     # -----------------------------
-    # Use actual left/right hand detection, but swap due to mirrored camera
     if detection_result.hand_landmarks and detection_result.handedness:
         for hand_info, hand_landmarks in zip(detection_result.handedness, detection_result.hand_landmarks):
             label = hand_info[0].category_name  # 'Left' or 'Right'
@@ -230,26 +229,35 @@ while cam.isOpened():
     left_volume.draw(frame)
     right_volume.draw(frame)
 
-
     # -----------------------------
     # Display Time & Colors
     # -----------------------------
     left_time = mc.get_position(left_song_index) if left_song_index>=0 else 0
     right_time = mc.get_position(right_song_index) if right_song_index>=0 else 0
-    active = mc.get_active_track()
-    left_color = (0,255,255) if active==left_song_index else (100,100,100)
-    right_color = (0,255,255) if active==right_song_index else (100,100,100)
+    
+    # Color based on whether THIS deck is playing
+    left_color = (0,255,255) if mc.is_playing(left_song_index) else (100,100,100)
+    right_color = (0,255,255) if mc.is_playing(right_song_index) else (100,100,100)
+    
     left_time_pos = (left_jog.cx-40, left_jog.cy+left_jog.radius+50)
     right_time_pos = (right_jog.cx-40, right_jog.cy+right_jog.radius+50)
     cv.putText(frame, format_time(left_time), left_time_pos, cv.FONT_HERSHEY_SIMPLEX, 0.6, left_color, 2)
     cv.putText(frame, format_time(right_time), right_time_pos, cv.FONT_HERSHEY_SIMPLEX, 0.6, right_color, 2)
-    if active>=0:
-        cv.putText(frame, f"NOW PLAYING: {mc.get_current_song_name(active)}", (10,210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0),2)
+    
+    # Display now playing for both decks if both are active
+    now_playing_text = []
+    if left_song_index >= 0 and mc.is_playing(left_song_index):
+        now_playing_text.append(f"LEFT: {mc.get_current_song_name(left_song_index)}")
+    if right_song_index >= 0 and mc.is_playing(right_song_index):
+        now_playing_text.append(f"RIGHT: {mc.get_current_song_name(right_song_index)}")
+    
+    if now_playing_text:
+        cv.putText(frame, " | ".join(now_playing_text), (10,210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
 
-    # Visualizer
-    left_playing = left_song_index>=0 and mc.get_active_track()==left_song_index and mc.is_playing(left_song_index)
-    right_playing = right_song_index>=0 and mc.get_active_track()==right_song_index and mc.is_playing(right_song_index)
-    visualizer.draw_all(frame, left_playing, right_playing)
+    # Visualizer - pass track indices so it can check if they're playing
+    left_playing = left_song_index>=0 and mc.is_playing(left_song_index)
+    right_playing = right_song_index>=0 and mc.is_playing(right_song_index)
+    visualizer.draw_all(frame, left_playing, right_playing, left_song_index, right_song_index)
 
     # Show Frame
     cv.imshow("Show Video", frame)
