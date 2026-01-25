@@ -201,8 +201,11 @@ while cam.isOpened():
     if active >= 0:
         cv.putText(frame, f"NOW PLAYING: {mc.get_current_song_name(active)}", (10, 210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-    # Draw visualizer
-    visualizer.draw_all(frame)
+    # Determine which decks are playing
+    left_playing = (mc.get_active_track() == left_song_index and mc.is_playing(left_song_index))
+    right_playing = (mc.get_active_track() == right_song_index and mc.is_playing(right_song_index))
+
+    visualizer.draw_all(frame, left_playing, right_playing)
     
     cv.imshow("Show Video", frame)
     if cv.waitKey(20) & 0xFF == ord('q'):
