@@ -2,6 +2,7 @@ import cv2 as cv
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from visualizer import DJVisualizer
 import math
 from playbutton import PlayButton
 from jogwheel import JogWheel
@@ -89,9 +90,15 @@ while cam.isOpened():
     success, frame = cam.read()
     if not success:
         continue
+    
+    frame = cv.flip(frame, 1)
 
     frame = cv.flip(frame, 1)
     h, w, _ = frame.shape
+
+    # Convert to RGB for MediaPipe
+    if 'visualizer' not in locals():
+        visualizer = DJVisualizer(w, h)
 
     rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
@@ -185,6 +192,9 @@ while cam.isOpened():
     if active >= 0:
         cv.putText(frame, f"NOW PLAYING: {mc.get_current_song_name(active)}", (10, 210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
+    # Draw visualizer
+    visualizer.draw_all(frame)
+    
     cv.imshow("Show Video", frame)
     if cv.waitKey(20) & 0xFF == ord('q'):
         break
