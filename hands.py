@@ -2,6 +2,7 @@ import cv2 as cv
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from visualizer import DJVisualizer
 import math
 import music as mc
 
@@ -47,7 +48,7 @@ def is_pinching(hand_landmarks, w, h, threshold=40):
 # -----------------------------
 # Camera Setup
 # -----------------------------
-cam = cv.VideoCapture(1)
+cam = cv.VideoCapture(0)
 frame_idx = 0
 
 # Pinch state tracking
@@ -61,8 +62,13 @@ while cam.isOpened():
     if not success:
         print("Camera Frame not available")
         continue
+    
+    frame = cv.flip(frame, 1)
 
     h, w, _ = frame.shape
+
+    if 'visualizer' not in locals():
+        visualizer = DJVisualizer(w, h)
 
     rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
     mp_image = mp.Image(
@@ -202,6 +208,7 @@ while cam.isOpened():
             2
         )
 
+    visualizer.draw_all(frame)
     cv.imshow("Show Video", frame)
 
     if cv.waitKey(20) & 0xFF == ord('q'):
