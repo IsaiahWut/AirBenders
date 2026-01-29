@@ -46,6 +46,9 @@ use_track_scratch = USE_TRACK_SCRATCH
 # Stem manager
 stem_manager = None
 
+# Recorder reference (will be set by hands.py)
+audio_recorder = None
+
 class TrackState:
     def __init__(self, filepath, target_sample_rate=44100, target_channels=2):
         self.filepath = filepath
@@ -273,6 +276,11 @@ class AudioMixer:
                             scratch_volume = min(0.7, 0.3 + abs(scratch_speed) * 0.4)
                             outdata[:] += scratch_chunk * scratch_volume
                         scratch_playback_position = 0
+            
+            # Send audio to recorder if recording
+            global audio_recorder
+            if audio_recorder is not None:
+                audio_recorder.add_audio_chunk(outdata, self.sample_rate)
 
 mixer = None
 output_stream = None

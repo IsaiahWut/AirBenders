@@ -13,12 +13,26 @@ import songlist
 from load import LoadButton
 from volumeSlider import VolumeSlider, clamp, is_claw
 from stempads import StemPadBank
+from recorder import DJRecorder, RecordButton
 
 # -----------------------------
 # Load Music
 # -----------------------------
 MUSIC_FOLDER = "MP3"
 mc.load_music_folder(MUSIC_FOLDER)
+
+# -----------------------------
+# Initialize Recorder
+# -----------------------------
+recorder = DJRecorder(output_folder="recordings")
+print(f"📹 Recorder initialized")
+if not recorder.is_ffmpeg_available():
+    print("⚠️  ffmpeg not found - install with: brew install ffmpeg")
+    print("   Recording will work but videos won't be combined")
+print()
+
+# Set recorder in music module so it can capture audio
+mc.audio_recorder = recorder
 
 # -----------------------------
 # Deck Initialization
@@ -86,6 +100,7 @@ left_button = right_button = left_load_button = right_load_button = None
 left_jog = right_jog = None
 left_volume = right_volume = None
 left_stem_bank = right_stem_bank = None
+record_button = None
 visualizer = None
 pinching_previous = set()
 
@@ -113,6 +128,10 @@ while cam.isOpened():
         right_button = PlayButton(center=(center_x+200, button_y), radius=30, label="PLAY 2")
         left_load_button = LoadButton(center=(center_x-200, button_y-70), radius=25, label="LOAD")
         right_load_button = LoadButton(center=(center_x+200, button_y-70), radius=25, label="LOAD")
+        
+        # Record button - top center
+        record_button = RecordButton(center=(center_x, 60), radius=35)
+        
         jog_y = int(h*0.55)
         left_jog = JogWheel(center=(center_x-350, jog_y), radius=160)
         right_jog = JogWheel(center=(center_x+350, jog_y), radius=160)
@@ -309,6 +328,34 @@ while cam.isOpened():
     right_volume.draw(frame)
 
     # -----------------------------
+    # Recording Controls
+    # -----------------------------
+    # Update record button
+    record_duration = recorder.get_recording_duration()
+    record_newly_pinched = record_button.update(pinch_positions, recorder.is_recording)
+    
+    if record_newly_pinched:
+        if not recorder.is_recording:
+            # Start recording
+            if recorder.start_recording(w, h):
+                print(f"🔴 Recording session started")
+        else:
+            # Stop recording
+            output_file = recorder.stop_recording()
+            if output_file:
+                print(f"✅ Session saved: {output_file}")
+    
+    # Draw record button
+    record_button.draw(frame, duration=record_duration)
+    
+    # Add current frame to recording
+    if recorder.is_recording:
+        recorder.add_video_frame(frame.copy())
+        
+        # Add audio to recording (we'll need to capture this from the mixer)
+        # This is handled in the mixer callback below
+
+    # -----------------------------
     # Display Time & Colors
     # -----------------------------
     left_time = mc.get_position(left_song_index) if left_song_index>=0 else 0
@@ -354,7 +401,7 @@ while cam.isOpened():
     visualizer.draw_all(frame, left_playing, right_playing, left_song_index, right_song_index)
 
     # Show Frame
-    cv.imshow("Show Video", frame)
+    cv.imshow("AirBenders", frame)
     if cv.waitKey(20) & 0xFF == ord('q'): break
 
 cam.release()
