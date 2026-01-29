@@ -1,0 +1,84 @@
+# DJ Tool with Stem Separation - Requirements
+# Python 3.8+ required
+
+# Core DJ Application Dependencies
+opencv-python==4.10.0.84
+mediapipe==0.10.14
+sounddevice==0.5.1
+soundfile==0.12.1
+scipy==1.13.1
+
+# NumPy - IMPORTANT: Must use 1.x for Demucs compatibility
+# Recent OpenCV (4.10+) and MediaPipe (0.10+) work with both NumPy 1.x and 2.x
+# We pin to 1.x because Demucs requires it
+numpy==1.26.4
+
+# Stem Separation with Demucs
+demucs==4.0.1
+
+# Deep Learning Dependencies (required by Demucs)
+# Note: Using 2.2.2 instead of 2.3.1 for better compatibility with NumPy 1.26.4
+torch==2.2.2
+torchaudio==2.2.2
+
+# Additional dependencies (automatically installed but listed for clarity)
+Pillow>=10.0.0
+protobuf>=3.20.0
+
+# ============================================================================
+# INSTALLATION NOTES:
+# ============================================================================
+#
+# OPTION 1: Fresh install (recommended)
+# -------------------------------------
+# pip install -r requirements.txt
+#
+# OPTION 2: If you already have packages installed
+# -------------------------------------------------
+# pip install --upgrade -r requirements.txt
+#
+# OPTION 3: Force reinstall everything (nuclear option)
+# ------------------------------------------------------
+# pip install --upgrade --force-reinstall -r requirements.txt
+#
+# ============================================================================
+# GPU ACCELERATION (OPTIONAL - for faster stem generation)
+# ============================================================================
+#
+# If you have an NVIDIA GPU with CUDA:
+# 1. Uninstall CPU versions:
+#    pip uninstall torch torchaudio
+#
+# 2. Install CUDA versions (choose your CUDA version):
+#    
+#    For CUDA 11.8:
+#    pip install torch==2.2.2+cu118 torchaudio==2.2.2+cu118 --index-url https://download.pytorch.org/whl/cu118
+#
+#    For CUDA 12.1:
+#    pip install torch==2.2.2+cu121 torchaudio==2.2.2+cu121 --index-url https://download.pytorch.org/whl/cu121
+#
+# 3. Verify GPU is detected:
+#    python -c "import torch; print(torch.cuda.is_available())"
+#
+# ============================================================================
+# COMPATIBILITY NOTES:
+# ============================================================================
+#
+# Q: Will downgrading NumPy break my other projects?
+# A: These versions of OpenCV and MediaPipe work with BOTH NumPy 1.x and 2.x,
+#    so downgrading to NumPy 1.26.4 is safe and won't break them.
+#
+# Q: What if I need NumPy 2.x for other projects?
+# A: Use a virtual environment (venv) for this DJ project:
+#    python3 -m venv dj_venv
+#    source dj_venv/bin/activate  # On Windows: dj_venv\Scripts\activate
+#    pip install -r requirements.txt
+#
+# Q: Why these specific versions?
+# A: - opencv-python 4.10.x: Works with NumPy 1.x and 2.x
+#    - mediapipe 0.10.14: Works with NumPy 1.x and 2.x  
+#    - numpy 1.26.4: Last stable 1.x version, required by Demucs
+#    - demucs 4.0.1: Latest stable version
+#    - torch 2.2.2: Tested and compatible with Demucs and NumPy 1.26.4
+#
+# ============================================================================

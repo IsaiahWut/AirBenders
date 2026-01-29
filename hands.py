@@ -12,6 +12,7 @@ import time
 import songlist
 from load import LoadButton
 from volumeSlider import VolumeSlider, clamp, is_claw
+from stempads import StemPadBank
 
 # -----------------------------
 # Load Music
@@ -49,7 +50,7 @@ song_list_panel = None
 song_list_width = 350
 item_height = 45
 highlighted_index = None
-song_pinch_id = None  # Track which song is being pinched
+song_pinch_id = None
 
 # -----------------------------
 # Pinch Detection (for play & load only)
@@ -84,6 +85,7 @@ frame_idx = 0
 left_button = right_button = left_load_button = right_load_button = None
 left_jog = right_jog = None
 left_volume = right_volume = None
+left_stem_bank = right_stem_bank = None
 visualizer = None
 pinching_previous = set()
 
@@ -94,7 +96,7 @@ while cam.isOpened():
     success, frame = cam.read()
     if not success: continue
 
-    mc.update_active_track_position()  # Now updates ALL playing tracks
+    mc.update_active_track_position()
     frame = cv.flip(frame, 1)
     h, w, _ = frame.shape
 
@@ -120,6 +122,19 @@ while cam.isOpened():
         slider_offset = 220
         left_volume = VolumeSlider(x=left_jog.cx - slider_offset - slider_width, y=left_jog.cy - slider_height//2, width=slider_width, height=slider_height, track_index=0)
         right_volume = VolumeSlider(x=right_jog.cx + slider_offset, y=right_jog.cy - slider_height//2, width=slider_width, height=slider_height, track_index=1)
+
+        # Initialize stem pad banks (below play button)
+        stem_pad_y = button_y + 50  # 50 pixels below play button
+        left_stem_bank = StemPadBank(
+            position=(center_x - 200, stem_pad_y),
+            track_index=0,
+            deck_label="LEFT"
+        )
+        right_stem_bank = StemPadBank(
+            position=(center_x + 200, stem_pad_y),
+            track_index=1,
+            deck_label="RIGHT"
+        )
 
     if visualizer is None:
         visualizer = DJVisualizer(w, h)
@@ -215,6 +230,44 @@ while cam.isOpened():
     if right_active: pinching_previous.add(right_button.center)
 
     # -----------------------------
+    # Stem Pads Control
+    # -----------------------------
+    # Always draw stem pads, but only make them functional if stems are loaded
+    if left_song_index >= 0:
+        if mc.has_stems(left_song_index):
+            # Get current stem states
+            left_stem_states = {
+                stem: mc.get_stem_state(left_song_index, stem)
+                for stem in mc.get_available_stems(left_song_index)
+            }
+            # Update and check for pinches
+            pinched_stems = left_stem_bank.update(pinch_positions, left_stem_states)
+            for stem_type in pinched_stems:
+                mc.toggle_stem(left_song_index, stem_type)
+        else:
+            # No stems loaded - just draw inactive pads
+            empty_stem_states = {'drums': False, 'vocals': False, 'instrumental': False}
+            left_stem_bank.update([], empty_stem_states)
+        
+        left_stem_bank.draw(frame)
+    
+    if right_song_index >= 0:
+        if mc.has_stems(right_song_index):
+            right_stem_states = {
+                stem: mc.get_stem_state(right_song_index, stem)
+                for stem in mc.get_available_stems(right_song_index)
+            }
+            pinched_stems = right_stem_bank.update(pinch_positions, right_stem_states)
+            for stem_type in pinched_stems:
+                mc.toggle_stem(right_song_index, stem_type)
+        else:
+            # No stems loaded - just draw inactive pads
+            empty_stem_states = {'drums': False, 'vocals': False, 'instrumental': False}
+            right_stem_bank.update([], empty_stem_states)
+        
+        right_stem_bank.draw(frame)
+
+    # -----------------------------
     # Jog Wheels
     # -----------------------------
     left_pinching_jog = right_pinching_jog = False
@@ -241,7 +294,7 @@ while cam.isOpened():
     # -----------------------------
     if detection_result.hand_landmarks and detection_result.handedness:
         for hand_info, hand_landmarks in zip(detection_result.handedness, detection_result.hand_landmarks):
-            label = hand_info[0].category_name  # 'Left' or 'Right'
+            label = hand_info[0].category_name
             # Swap left/right because the frame is mirrored
             if label == "Left":
                 right_volume.update(hand_landmarks, w, h)
@@ -279,6 +332,21 @@ while cam.isOpened():
     
     if now_playing_text:
         cv.putText(frame, " | ".join(now_playing_text), (10,210), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
+    
+    # Show stem status if active
+    stem_status_y = 240
+    if left_song_index >= 0 and mc.has_stems(left_song_index):
+        active_stems = [s for s in mc.get_available_stems(left_song_index) if mc.get_stem_state(left_song_index, s)]
+        if active_stems:
+            cv.putText(frame, f"LEFT STEMS: {', '.join(active_stems)}", (10, stem_status_y), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (100,200,255), 1)
+            stem_status_y += 25
+    
+    if right_song_index >= 0 and mc.has_stems(right_song_index):
+        active_stems = [s for s in mc.get_available_stems(right_song_index) if mc.get_stem_state(right_song_index, s)]
+        if active_stems:
+            cv.putText(frame, f"RIGHT STEMS: {', '.join(active_stems)}", (10, stem_status_y), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (100,200,255), 1)
 
     # Visualizer - pass track indices so it can check if they're playing
     left_playing = left_song_index>=0 and mc.is_playing(left_song_index)
