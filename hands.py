@@ -49,6 +49,7 @@ song_list_panel = None
 song_list_width = 350
 item_height = 45
 highlighted_index = None
+song_pinch_id = None  # Track which song is being pinched
 
 # -----------------------------
 # Pinch Detection (for play & load only)
@@ -78,7 +79,7 @@ class ReleaseCallback:
 # -----------------------------
 # Camera & UI
 # -----------------------------
-cam = cv.VideoCapture(1)
+cam = cv.VideoCapture(0)
 frame_idx = 0
 left_button = right_button = left_load_button = right_load_button = None
 left_jog = right_jog = None
@@ -143,39 +144,54 @@ while cam.isOpened():
                 cv.circle(frame, (cx, cy), 10, (0,255,0), -1)
 
     # -----------------------------
-    # Song List Pinch Toggle
+    # Song List Update (dragging and collapse)
     # -----------------------------
-    for px, py in pinch_positions:
-        idx = song_list_panel.check_pinch([(px, py)])
+    song_list_panel.update(pinch_positions)
+    
+    # Track song selection with proper pinch state
+    song_pinched_this_frame = False
+    if not song_list_panel.is_collapsed and not song_list_panel.is_dragging:
+        idx = song_list_panel.check_pinch(pinch_positions)
         if idx is not None:
-            highlighted_index = None if highlighted_index == idx else idx
+            song_pinched_this_frame = True
+            # Toggle highlight only on new pinch (not held)
+            if song_pinch_id != idx:
+                highlighted_index = None if highlighted_index == idx else idx
+                song_pinch_id = idx
+    
+    # Reset pinch tracking when no pinch detected
+    if not song_pinched_this_frame:
+        song_pinch_id = None
 
+    # Draw the song list
     song_list_panel.draw(frame, highlight_index=highlighted_index)
 
     # -----------------------------
     # Load Buttons Logic
     # -----------------------------
     left_load_active = right_load_active = False
-    for px, py in pinch_positions:
-        if highlighted_index is not None:
-            if left_load_button.contains(px, py):
-                # Stop current song if playing
-                if left_song_index >= 0:
+    # Only allow loading when panel is expanded and not dragging
+    if not song_list_panel.is_collapsed and not song_list_panel.is_dragging:
+        for px, py in pinch_positions:
+            if highlighted_index is not None:
+                if left_load_button.contains(px, py):
+                    # Stop current song if playing
+                    if left_song_index >= 0:
+                        mc.stop(left_song_index)
+                    left_song_index = highlighted_index
+                    # Reset new song to position 0
                     mc.stop(left_song_index)
-                left_song_index = highlighted_index
-                # Reset new song to position 0
-                mc.stop(left_song_index)
-                highlighted_index = None
-                left_load_active = True
-            if right_load_button.contains(px, py):
-                # Stop current song if playing
-                if right_song_index >= 0:
+                    highlighted_index = None
+                    left_load_active = True
+                if right_load_button.contains(px, py):
+                    # Stop current song if playing
+                    if right_song_index >= 0:
+                        mc.stop(right_song_index)
+                    right_song_index = highlighted_index
+                    # Reset new song to position 0
                     mc.stop(right_song_index)
-                right_song_index = highlighted_index
-                # Reset new song to position 0
-                mc.stop(right_song_index)
-                highlighted_index = None
-                right_load_active = True
+                    highlighted_index = None
+                    right_load_active = True
 
     # -----------------------------
     # Play & Load Buttons
